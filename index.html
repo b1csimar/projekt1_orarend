@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <title>Órarend</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    input, select { margin: 5px; }
+    button { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Órarend</h1>
+
+  <table id="timetable">
+    <thead>
+      <tr><th>Nap</th><th>Óra</th><th>Tantárgy</th><th>Művelet</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Új óra hozzáadása</h2>
+  <select id="day">
+    <option>Hétfő</option><option>Kedd</option><option>Szerda</option>
+    <option>Csütörtök</option><option>Péntek</option>
+  </select>
+  <input type="number" id="hour" placeholder="Óra sorszáma" min="1" max="10">
+  <input type="text" id="subject" placeholder="Tantárgy neve">
+  <button onclick="addLesson()">Hozzáadás</button>
+
+  <h2>Óra szerkesztése</h2>
+  <select id="edit-day">
+    <option>Hétfő</option><option>Kedd</option><option>Szerda</option>
+    <option>Csütörtök</option><option>Péntek</option>
+  </select>
+  <input type="number" id="edit-hour" placeholder="Óra sorszáma" min="1" max="10">
+  <input type="text" id="edit-subject" placeholder="Tantárgy neve">
+  <button onclick="editLesson()">Módosítás</button>
+
+  <script>
+    let currentIndex = null;
+
+    async function fetchTimetable() {
+      const res = await fetch("http://localhost:3000/api/timetable");
+      const data = await res.json();
+      const tbody = document.querySelector("#timetable tbody");
+      tbody.innerHTML = "";
+      data.forEach((lesson, index) => {
+        const row = `<tr>
+          <td>${lesson.day}</td>
+          <td>${lesson.hour}</td>
+          <td>${lesson.subject}</td>
+          <td>
+            <button onclick="editLessonForm(${index})">Szerkesztés</button>
+            <button onclick="deleteLesson(${index})">Törlés</button>
+          </td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    async function addLesson() {
+      const day = document.getElementById("day").value;
+      const hour = document.getElementById("hour").value;
+      const subject = document.getElementById("subject").value;
+
+      await fetch("http://localhost:3000/api/timetable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day, hour: parseInt(hour), subject })
+      });
+
+      fetchTimetable();
+    }
+
+    async function editLessonForm(index) {
+      // Lekérjük az adatokat a szervertől
+      const res = await fetch("http://localhost:3000/api/timetable");
+      const data = await res.json();
+      const lesson = data[index];
+      
+      // Kitöltjük a szerkesztési mezőket
+      document.getElementById("edit-day").value = lesson.day;
+      document.getElementById("edit-hour").value = lesson.hour;
+      document.getElementById("edit-subject").value = lesson.subject;
+
+      // Elmentjük a választott indexet
+      currentIndex = index;
+    }
+
+    async function editLesson() {
+      if (currentIndex === null) {
+        alert("Nincs kiválasztott óra a szerkesztéshez.");
+        return;
+      }
+
+      const day = document.getElementById("edit-day").value;
+      const hour = document.getElementById("edit-hour").value;
+      const subject = document.getElementById("edit-subject").value;
+
+      // Küldjük a PUT kérést a módosításhoz
+      await fetch(`http://localhost:3000/api/timetable/${currentIndex}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day, hour: parseInt(hour), subject })
+      });
+
+      // Frissítjük az órarendet
+      fetchTimetable();
+
+      // Reseteljük a currentIndex-et
+      currentIndex = null;
+    }
+
+    async function deleteLesson(index) {
+      await fetch(`http://localhost:3000/api/timetable/${index}`, {
+        method: "DELETE"
+      });
+      fetchTimetable();
+    }
+
+    fetchTimetable();
+  </script>
+</body>
+</html>
